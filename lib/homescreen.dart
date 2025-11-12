@@ -85,7 +85,7 @@ class HomeScreen extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const CarFinder(),
+                            builder: (context) =>  CarFinder(),
                           ),
                         );
                       },
