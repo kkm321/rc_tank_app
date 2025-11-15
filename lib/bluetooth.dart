@@ -5,61 +5,191 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 /// Displays connection status and paired devices using `flutter_blue_plus`.
 /// Intended for use with an ESP32-based RC car.
 /// Uses a military color palette for styling.
-class CarFinder extends StatelessWidget {
-  final FlutterBluePlus flutterBlue = FlutterBluePlus as FlutterBluePlus;
 
-   CarFinder({super.key});
+
+class CarFinder extends StatefulWidget {
+  const CarFinder({super.key});
+
+  @override
+  State<CarFinder> createState() => _CarFinderState();
+}
+
+class _CarFinderState extends State<CarFinder> {
+  bool isScanning = false;
+
+  // Begin BLE scan
+  Future<void> startScan() async {
+    setState(() => isScanning = true);
+
+    FlutterBluePlus.startScan(timeout: const Duration(seconds: 4));
+
+    FlutterBluePlus.isScanning.listen((scanning) {
+      setState(() => isScanning = scanning);
+    });
+  }
+
+  // Placeholder Bluetooth action
+  void bluetoothAction() {
+    debugPrint("Bluetooth action triggered");
+  }
 
   @override
   Widget build(BuildContext context) {
+    final adapterState = FlutterBluePlus.adapterStateNow;
+
+    // Military color palette (same as HomeScreen)
+    const Color militaryGreen = Color(0xFF556B2F);
+    const Color khaki = Color(0xFFF0E68C);
+    const Color darkBrown = Color(0xFF4B3621);
+    const Color oliveDrab = Color(0xFF6B8E23);
+    const Color oliveDrab20 = Color(0x336B8E23);
+
     return Scaffold(
+      backgroundColor: khaki,
       appBar: AppBar(
-        title: const Text('RC Car Bluetooth Connection'),
-        backgroundColor: const Color(0xFF2E8B57), // Military green
+        title: const Text("Bluetooth"),
+        backgroundColor: militaryGreen,
+        foregroundColor: Colors.white,
       ),
-      body: StreamBuilder<BluetoothAdapterState>(
-        stream: FlutterBluePlus.adapterState,
-        initialData: BluetoothAdapterState.unknown,
-        builder: (c, snapshot) {
-          final state = snapshot.data;
-          if (state == BluetoothAdapterState.on) {
-            return StreamBuilder<List<BluetoothDevice>>(
-              stream: FlutterBluePlus.connectedDevices.asStream(),
-              initialData: const [],
-              builder: (c, snapshot) {
-                final devices = snapshot.data!;
-                return ListView.builder(
-                  itemCount: devices.length,
-                  itemBuilder: (c, index) {
-                    final device = devices[index];
-                    return ListTile(
-                      title: Text(device.platformName.isNotEmpty ? device.platformName : 'Unknown Device'),
-                      subtitle: Text(device.remoteId.toString()),
-                      trailing: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF556B2F), // Dark olive green
+      body: adapterState != BluetoothAdapterState.on
+          ? const Center(
+              child: Text(
+                "Please turn on Bluetooth.",
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            )
+          : Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  const SizedBox(height: 20),
+
+                  // Scan button
+                  SizedBox(
+                    width: 200,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: isScanning ? null : startScan,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: militaryGreen,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Text('Disconnect'),
-                        onPressed: () async {
-                          await device.disconnect();
+                      ),
+                      child: Text(
+                        isScanning ? "Scanning..." : "Scan for Devices",
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 15),
+
+                  // Bluetooth action button
+                  SizedBox(
+                    width: 200,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: bluetoothAction,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: darkBrown,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        "Bluetooth Function",
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Device list container (matches UI style)
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: oliveDrab20,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: militaryGreen.withAlpha(200),
+                          width: 2,
+                        ),
+                      ),
+                      child: StreamBuilder<List<ScanResult>>(
+                        stream: FlutterBluePlus.scanResults,
+                        initialData: const [],
+                        builder: (context, snapshot) {
+                          final results = snapshot.data ?? [];
+
+                          if (results.isEmpty) {
+                            return const Center(
+                              child: Text(
+                                "No devices found.",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            );
+                          }
+
+                          return ListView.builder(
+                            itemCount: results.length,
+                            itemBuilder: (context, index) {
+                              final r = results[index];
+                              final device = r.device;
+
+                              return ListTile(
+                                title: Text(
+                                  device.platformName.isNotEmpty
+                                      ? device.platformName
+                                      : "Unknown Device",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                subtitle: Text(device.remoteId.toString()),
+                                trailing: Icon(Icons.bluetooth,
+                                    color: oliveDrab),
+                              );
+                            },
+                          );
                         },
                       ),
-                    );
-                  },
-                );
-              },
-            );
-          }
-          return Center(
-            child: Text(
-              state == BluetoothAdapterState.off
-                  ? 'Bluetooth is Off. Please enable Bluetooth.'
-                  : 'Bluetooth State: $state',
-              style: const TextStyle(fontSize: 18, color: Color(0xFF8B0000)), // Dark red
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Return button (same as HomeScreen layout)
+                  SizedBox(
+                    width: 200,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: oliveDrab,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        "Return Home",
+                        style: TextStyle(fontSize: 18),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          );
-        },
-      ),
     );
   }
 }
