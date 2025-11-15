@@ -63,9 +63,3 @@ class CarFinder extends StatelessWidget {
     );
   }
 }
-
-extension on List<BluetoothDevice> {
-  Stream<List<BluetoothDevice>>? asStream() {
-    return null;
-  }
-}
